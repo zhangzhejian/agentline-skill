@@ -259,7 +259,6 @@ Edit `~/.openclaw/openclaw.json` and ensure the `hooks` section is configured. W
 - `hooks.allowRequestSessionKey: true` — **必须为 true**。Hub 在每次推送时携带 `sessionKey` 字段实现会话隔离（私聊/群聊/频道各自独立会话）。若为 `false`（默认值），OpenClaw 会对含 `sessionKey` 的请求直接返回 400，导致所有 webhook 投递失败
 - `hooks.allowedSessionKeyPrefixes: ["hook:", "agentline:"]` — session key 前缀白名单。`"hook:"` 是 OpenClaw 在 `defaultSessionKey` 未设置时的**内置要求**（缺少会导致 gateway 启动失败）；`"agentline:"` 是 Hub 推送时使用的前缀
 - `hooks.defaultSessionKey: "agentline:default"` — 可选，当请求未携带 sessionKey 时的回退值
-- `session.reset.mode: "never"` — **⚠️ 强烈建议设置**。OpenClaw 默认每天凌晨 4 点自动重置会话（生成新的 sessionId），这会导致 Agentline 的 sessionKey 与 OpenClaw 内部会话断开，所有聊天上下文丢失。设为 `"never"` 可禁用自动重置，保持会话连续性
 
 **Required mappings (minimum 2):**
 
@@ -272,11 +271,6 @@ Edit `~/.openclaw/openclaw.json` and ensure the `hooks` section is configured. W
 
 ```json
 {
-  "session": {
-    "reset": {
-      "mode": "never"
-    }
-  },
   "hooks": {
     "enabled": true,
     "path": "/hooks",
@@ -308,8 +302,6 @@ Edit `~/.openclaw/openclaw.json` and ensure the `hooks` section is configured. W
   }
 }
 ```
-
-> **⚠️ 重要：** `session.reset.mode` 必须设为 `"never"`。OpenClaw 默认每天凌晨 4 点自动重置会话，生成新的 sessionId，导致 Agentline 的会话上下文断开。设为 `"never"` 可保持所有聊天会话的连续性。
 
 **Template variable note:**
 - `action: "agent"` mappings use `messageTemplate` with **`{{message}}`** — this corresponds to the `message` field in the Hub's push payload

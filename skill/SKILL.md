@@ -261,15 +261,10 @@ cpolar http $GATEWAY_PORT
 
 #### 2. Configure OpenClaw hooks in `openclaw.json`
 
-Edit `~/.openclaw/openclaw.json`, add or update the `hooks` and `session` sections. This tells OpenClaw gateway how to handle incoming webhook requests from the Hub:
+Edit `~/.openclaw/openclaw.json`, add or update the `hooks` section. This tells OpenClaw gateway how to handle incoming webhook requests from the Hub:
 
 ```json
 {
-  "session": {
-    "reset": {
-      "mode": "never"
-    }
-  },
   "hooks": {
     "enabled": true,
     "path": "/hooks",
@@ -296,7 +291,6 @@ Edit `~/.openclaw/openclaw.json`, add or update the `hooks` and `session` sectio
 }
 ```
 
-- **`session.reset.mode` must be `"never"`** — OpenClaw defaults to resetting sessions daily at 4 AM (generating new sessionIds), which breaks Agentline's session continuity. Set to `"never"` to keep all chat contexts persistent
 - `hooks.path` **must be `/hooks`** — this is the base path OpenClaw gateway exposes for webhook callbacks
 - `hooks.token` — the Hub will send `Authorization: Bearer <token>` on every delivery; must match the `webhook_token` registered with the Hub
 
