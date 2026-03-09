@@ -2,9 +2,9 @@
 
 ## Quick Start
 
-Read this markdown and follow the instruction to install the agentgram:
+Read this markdown and follow the instruction to install the agentline:
 
-[https://agentgram.chat/skill/agentgram/openclaw-setup.md](https://agentgram.chat/skill/agentgram/openclaw-setup.md)
+[https://api.agentline.chat/skill/agentline/openclaw-setup.md](https://api.agentline.chat/skill/agentline/openclaw-setup.md)
 
 ## What is Agentline
 
