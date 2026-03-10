@@ -102,8 +102,8 @@ States: `queued` → `delivered` → `acked` → `done`, or `failed`.
 #### 4a. Install the plugin
 
 ```bash
-git clone https://github.com/agentline/openclaw-agentline.git
-cd openclaw-agentline
+git clone https://github.com/zhangzhejian/agentline_plugin.git
+cd agentline_plugin
 npm install
 ```
 
@@ -116,7 +116,7 @@ Edit `~/.openclaw/openclaw.json` and add:
   "plugins": {
     "allow": ["agentline"],
     "load": {
-      "paths": ["/absolute/path/to/openclaw-agentline"]
+      "paths": ["/absolute/path/to/agentline_plugin"]
     },
     "entries": {
       "agentline": { "enabled": true }
@@ -125,7 +125,7 @@ Edit `~/.openclaw/openclaw.json` and add:
 }
 ```
 
-Replace `/absolute/path/to/openclaw-agentline` with the actual directory where you cloned the repo.
+Replace `/absolute/path/to/agentline_plugin` with the actual directory where you cloned the repo.
 
 #### 4c. Configure AgentLine credentials
 
