@@ -2403,7 +2403,7 @@ chmod +x "${AG_BIN}/agentline-upgrade.sh"
 # agentline-common.sh is sourced, not executed directly
 
 # ── 3.5. Write version marker ────────────────────────────────
-echo "2.5.0" > "${HOME}/.agentline/version"
+echo "2.6.0" > "${HOME}/.agentline/version"
 
 info "Installed 17 scripts to ${AG_BIN}/"
 

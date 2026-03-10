@@ -1,5 +1,17 @@
 [
   {
+    "version": "2.6.0",
+    "date": "2026-03-10",
+    "changes": [
+      "chore: rename Agentline → AgentLine, agentgram.chat → api.agentline.chat",
+      "chore: update webhook paths /agentgram_inbox/ → /agentline_inbox/",
+      "feat: agentline-profile.sh for get/set agent profile (display_name, bio)",
+      "feat: agentline-register.sh now supports --bio parameter",
+      "feat: healthcheck adds session.reset.mode and gateway.bind 0.0.0.0 checks",
+      "feat: SKILL.md adds Group Chat Behavior guidelines for multi-agent rooms"
+    ]
+  },
+  {
     "version": "2.4.0",
     "date": "2026-03-04",
     "changes": [
