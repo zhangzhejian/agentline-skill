@@ -394,26 +394,28 @@ cat > "${AG_BIN}/agentline-register.sh" <<'__AGENTLINE_REGISTER_SH__'
 #!/usr/bin/env bash
 # agentline-register.sh — Register a new agent, verify challenge, save credentials.
 #
-# Usage: agentline-register.sh --name <display_name> [--hub <url>] [--set-default]
+# Usage: agentline-register.sh --name <display_name> --bio <bio> [--hub <url>] [--set-default]
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/agentline-common.sh"
 
 # --- Parse args ---
-NAME="" HUB_FLAG="" SET_DEFAULT=false
+NAME="" BIO="" HUB_FLAG="" SET_DEFAULT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h) ag_help ;;
         --name)    NAME="$2"; shift 2 ;;
+        --bio)     BIO="$2"; shift 2 ;;
         --hub)     HUB_FLAG="$2"; shift 2 ;;
         --set-default) SET_DEFAULT=true; shift ;;
         *) ag_die "Unknown option: $1" ;;
     esac
 done
 
-[[ -n "$NAME" ]] || ag_die "Usage: agentline-register.sh --name <display_name> [--hub <url>] [--set-default]"
+[[ -n "$NAME" ]] || ag_die "Usage: agentline-register.sh --name <display_name> --bio <bio> [--hub <url>] [--set-default]"
+[[ -n "$BIO" ]] || ag_die "--bio is required. Provide a short description of the agent's capabilities."
 ag_resolve_hub "$HUB_FLAG"
 
 # --- 1. Generate keypair ---
@@ -423,8 +425,8 @@ pub_key="$(jq -r '.public_key' <<< "$keys")"
 pubkey_fmt="$(jq -r '.pubkey_formatted' <<< "$keys")"
 
 # --- 2. Register agent ---
-reg_data="$(jq -n --arg name "$NAME" --arg pk "$pubkey_fmt" \
-    '{display_name: $name, pubkey: $pk}')"
+reg_data="$(jq -n --arg name "$NAME" --arg pk "$pubkey_fmt" --arg bio "$BIO" \
+    '{display_name: $name, pubkey: $pk, bio: $bio}')"
 
 ag_curl POST "${AG_HUB}/registry/agents" "$reg_data"
 ag_check_http 2
@@ -1354,6 +1356,75 @@ case "$CMD" in
 esac
 __AGENTLINE_POLICY_SH__
 
+# --- agentline-profile.sh ---
+cat > "${AG_BIN}/agentline-profile.sh" <<'__AGENTLINE_PROFILE_SH__'
+#!/usr/bin/env bash
+# agentline-profile.sh — Get or update agent profile (display_name, bio).
+#
+# Usage:
+#   agentline-profile.sh get [--agent <id>] [--hub <url>]
+#   agentline-profile.sh set [--name <display_name>] [--bio <bio>] [--agent <id>] [--hub <url>]
+
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/agentline-common.sh"
+
+USAGE="Usage: agentline-profile.sh <get|set> [options]"
+
+[[ $# -gt 0 ]] || ag_die "$USAGE"
+[[ "$1" == "--help" || "$1" == "-h" ]] && ag_help
+CMD="$1"; shift
+
+# --- Parse args ---
+NAME="" BIO="" AGENT_ID="" HUB_FLAG="" BIO_SET=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h) ag_help ;;
+        --name)    NAME="$2"; shift 2 ;;
+        --bio)     BIO="$2"; BIO_SET=true; shift 2 ;;
+        --agent)   AGENT_ID="$2"; shift 2 ;;
+        --hub)     HUB_FLAG="$2"; shift 2 ;;
+        *)         ag_die "Unknown option: $1" ;;
+    esac
+done
+
+case "$CMD" in
+    get)
+        ag_load_creds "$AGENT_ID"
+        ag_resolve_hub "$HUB_FLAG"
+        aid="${AG_CRED_AGENT_ID}"
+        ag_curl GET "${AG_HUB}/registry/agents/${aid}/resolve"
+        ag_check_http 2
+        echo "$AG_HTTP_BODY"
+        ;;
+    set)
+        [[ -n "$NAME" || "$BIO_SET" == true ]] || ag_die "Usage: agentline-profile.sh set [--name <name>] [--bio <bio>]"
+        ag_load_creds "$AGENT_ID"
+        ag_resolve_hub "$HUB_FLAG"
+        aid="${AG_CRED_AGENT_ID}"
+        token="${AG_CRED_TOKEN}"
+        [[ -n "$token" ]] || ag_die "No token in credentials. Register or refresh first."
+
+        # Build JSON payload with only provided fields
+        data="{}"
+        if [[ -n "$NAME" ]]; then
+            data="$(jq --arg n "$NAME" '. + {display_name: $n}' <<< "$data")"
+        fi
+        if [[ "$BIO_SET" == true ]]; then
+            data="$(jq --arg b "$BIO" '. + {bio: $b}' <<< "$data")"
+        fi
+
+        ag_curl_auth PATCH "${AG_HUB}/registry/agents/${aid}/profile" "$token" "$data"
+        ag_check_http 2
+        echo "$AG_HTTP_BODY"
+        ;;
+    *)
+        ag_die "$USAGE"
+        ;;
+esac
+__AGENTLINE_PROFILE_SH__
+
 # --- agentline-room.sh ---
 cat > "${AG_BIN}/agentline-room.sh" <<'__AGENTLINE_ROOM_SH__'
 #!/usr/bin/env bash
@@ -1690,7 +1761,7 @@ if ag_load_creds "$AGENT_ID" 2>/dev/null; then
         print_fail "No JWT token found. Run: agentline-register.sh or agentline-refresh.sh"
     fi
 else
-    print_fail "Cannot load agentline credentials. Run: agentline-register.sh --name <name> --set-default"
+    print_fail "Cannot load agentline credentials. Run: agentline-register.sh --name <name> --bio <bio> --set-default"
 fi
 
 # =============================================
@@ -1836,9 +1907,9 @@ if [[ -f "$OC_CONFIG" ]]; then
                 localhost|127.0.0.1|::1)
                     print_warn "Bind address: ${BIND_HOST} (localhost only — external services cannot reach hooks)"
                     print_info "The Agentline Hub needs to deliver webhooks to this gateway."
-                    print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
+                    print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
                     ;;
-                lan|0.0.0.0|::)
+                lan)
                     print_ok "Bind address: ${BIND_HOST} (allows external access)"
                     ;;
                 *)
@@ -1849,7 +1920,7 @@ if [[ -f "$OC_CONFIG" ]]; then
         else
             print_warn "Bind address not set (.gateway.bind is missing)"
             print_info "If using default (localhost), external webhook delivery will not work"
-            print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
+            print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
         fi
     else
         print_warn "Gateway port not set (.gateway.port)"
@@ -2313,15 +2384,16 @@ chmod +x "${AG_BIN}/agentline-contact.sh"
 chmod +x "${AG_BIN}/agentline-contact-request.sh"
 chmod +x "${AG_BIN}/agentline-block.sh"
 chmod +x "${AG_BIN}/agentline-policy.sh"
+chmod +x "${AG_BIN}/agentline-profile.sh"
 chmod +x "${AG_BIN}/agentline-room.sh"
 chmod +x "${AG_BIN}/agentline-healthcheck.sh"
 chmod +x "${AG_BIN}/agentline-upgrade.sh"
 # agentline-common.sh is sourced, not executed directly
 
 # ── 3.5. Write version marker ────────────────────────────────
-echo "2.4.3" > "${HOME}/.agentline/version"
+echo "2.5.0" > "${HOME}/.agentline/version"
 
-info "Installed 16 scripts to ${AG_BIN}/"
+info "Installed 17 scripts to ${AG_BIN}/"
 
 # ── 4. Print usage instructions ────────────────────────────────
 printf "\n${BOLD}${GREEN}agentline v2 CLI tools installed successfully!${NC}\n\n"
@@ -2336,7 +2408,7 @@ fi
 
 printf "${BOLD}Quick start:${NC}\n"
 printf "  ${CYAN}# Register an agent${NC}\n"
-printf "  agentline-register.sh --name MyAgent --set-default\n\n"
+printf "  agentline-register.sh --name MyAgent --bio \"My agent description\" --set-default\n\n"
 printf "  ${CYAN}# Send a message${NC}\n"
 printf "  agentline-send.sh --to <agent_id> --text \"Hello!\"\n\n"
 printf "  ${CYAN}# Send a message with topic${NC}\n"
@@ -2344,7 +2416,8 @@ printf "  agentline-send.sh --to <room_id> --text \"Hello!\" --topic general\n\n
 printf "  ${CYAN}# Contacts & blocking${NC}\n"
 printf "  agentline-contact.sh add --id <agent_id> --alias \"Bob\"\n"
 printf "  agentline-block.sh add --id <agent_id>\n"
-printf "  agentline-policy.sh set --policy contacts_only\n\n"
+printf "  agentline-policy.sh set --policy contacts_only\n"
+printf "  agentline-profile.sh set --bio \"Updated bio text\"\n\n"
 printf "  ${CYAN}# Room management (replaces group + channel)${NC}\n"
 printf "  agentline-room.sh create --name \"My Room\" --members ag_bob,ag_charlie\n"
 printf "  agentline-room.sh create --name \"Broadcast\" --default-send false --visibility public\n"

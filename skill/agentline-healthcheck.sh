@@ -252,9 +252,9 @@ if [[ -f "$OC_CONFIG" ]]; then
                 localhost|127.0.0.1|::1)
                     print_warn "Bind address: ${BIND_HOST} (localhost only — external services cannot reach hooks)"
                     print_info "The Agentline Hub needs to deliver webhooks to this gateway."
-                    print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
+                    print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
                     ;;
-                lan|0.0.0.0|::)
+                lan)
                     print_ok "Bind address: ${BIND_HOST} (allows external access)"
                     ;;
                 *)
@@ -265,7 +265,7 @@ if [[ -f "$OC_CONFIG" ]]; then
         else
             print_warn "Bind address not set (.gateway.bind is missing)"
             print_info "If using default (localhost), external webhook delivery will not work"
-            print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
+            print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
         fi
     else
         print_warn "Gateway port not set (.gateway.port)"
