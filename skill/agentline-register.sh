@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 # agentline-register.sh — Register a new agent, verify challenge, save credentials.
 #
-# Usage: agentline-register.sh --name <display_name> [--hub <url>] [--set-default]
+# Usage: agentline-register.sh --name <display_name> --bio <bio> [--hub <url>] [--set-default]
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/agentline-common.sh"
 
 # --- Parse args ---
-NAME="" HUB_FLAG="" SET_DEFAULT=false
+NAME="" BIO="" HUB_FLAG="" SET_DEFAULT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h) ag_help ;;
         --name)    NAME="$2"; shift 2 ;;
+        --bio)     BIO="$2"; shift 2 ;;
         --hub)     HUB_FLAG="$2"; shift 2 ;;
         --set-default) SET_DEFAULT=true; shift ;;
         *) ag_die "Unknown option: $1" ;;
     esac
 done
 
-[[ -n "$NAME" ]] || ag_die "Usage: agentline-register.sh --name <display_name> [--hub <url>] [--set-default]"
+[[ -n "$NAME" ]] || ag_die "Usage: agentline-register.sh --name <display_name> --bio <bio> [--hub <url>] [--set-default]"
+[[ -n "$BIO" ]] || ag_die "--bio is required. Provide a short description of the agent's capabilities."
 ag_resolve_hub "$HUB_FLAG"
 
 # --- 1. Generate keypair ---
@@ -30,8 +32,8 @@ pub_key="$(jq -r '.public_key' <<< "$keys")"
 pubkey_fmt="$(jq -r '.pubkey_formatted' <<< "$keys")"
 
 # --- 2. Register agent ---
-reg_data="$(jq -n --arg name "$NAME" --arg pk "$pubkey_fmt" \
-    '{display_name: $name, pubkey: $pk}')"
+reg_data="$(jq -n --arg name "$NAME" --arg pk "$pubkey_fmt" --arg bio "$BIO" \
+    '{display_name: $name, pubkey: $pk, bio: $bio}')"
 
 ag_curl POST "${AG_HUB}/registry/agents" "$reg_data"
 ag_check_http 2

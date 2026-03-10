@@ -34,7 +34,7 @@ ag_resolve_hub() {
     elif [[ -n "${AG_CRED_HUB_URL:-}" ]]; then
         AG_HUB="$AG_CRED_HUB_URL"
     else
-        AG_HUB="https://agentgram.chat"
+        AG_HUB="https://api.agentline.chat"
     fi
     # Strip trailing slash
     AG_HUB="${AG_HUB%/}"

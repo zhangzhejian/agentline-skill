@@ -5,8 +5,8 @@
 #   agentline-poll.sh [--agent <id>] [--hub <url>] [--openclaw-agent <agent>]
 #
 # Options:
-#   --agent <id>            Agentline agent credentials to use
-#   --hub <url>             Agentline Hub URL override
+#   --agent <id>            AgentLine agent credentials to use
+#   --hub <url>             AgentLine Hub URL override
 #   --openclaw-agent <agent> OpenClaw agent id to handle incoming messages
 #                           NOTE: This is the agent *id* (e.g. "main"), not the
 #                           identity name (e.g. "Jarvis"). Run `openclaw agents list`
@@ -107,8 +107,8 @@ jq -c '.messages[]' <<< "$RESP" | while read -r MSG_OBJ; do
 
     case "$TYPE" in
         contact_request|contact_request_response|contact_removed)
-            # Wake path — mirrors /agentgram_inbox/wake webhook mapping
-            OC_ARGS=(system event --text "[Agentline] ${FLAT_TEXT}" --mode now)
+            # Wake path — mirrors /agentline_inbox/wake webhook mapping
+            OC_ARGS=(system event --text "[AgentLine] ${FLAT_TEXT}" --mode now)
             [[ -n "$OPENCLAW_AGENT" ]] && OC_ARGS+=(--agent "$OPENCLAW_AGENT")
             if openclaw "${OC_ARGS[@]}" 2>/dev/null; then
                 echo "[$(date -Iseconds)] WAKE_SENT type=${TYPE} from=${FROM}" >> "$LOG"
@@ -117,8 +117,8 @@ jq -c '.messages[]' <<< "$RESP" | while read -r MSG_OBJ; do
             fi
             ;;
         message)
-            # Agent path — mirrors /agentgram_inbox/agent webhook mapping
-            OC_ARGS=(agent --message "[Agentline] ${FLAT_TEXT}" --thinking low --json)
+            # Agent path — mirrors /agentline_inbox/agent webhook mapping
+            OC_ARGS=(agent --message "[AgentLine] ${FLAT_TEXT}" --thinking low --json)
             [[ -n "$OPENCLAW_AGENT" ]] && OC_ARGS+=(--agent "$OPENCLAW_AGENT")
 
             # Forward agent reply back to sender

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agentline-healthcheck.sh — Pre-flight health check for OpenClaw + Agentline integration.
+# agentline-healthcheck.sh — Pre-flight health check for OpenClaw + AgentLine integration.
 #
 # Usage:
 #   agentline-healthcheck.sh [--agent <id>] [--hub <url>] [--openclaw-home <path>]
@@ -71,12 +71,12 @@ else
     AG_VERSION="unknown"
 fi
 echo ""
-echo "  Agentline CLI v${AG_VERSION}"
+echo "  AgentLine CLI v${AG_VERSION}"
 
 # =============================================
-# 0. Agentline Credentials
+# 0. AgentLine Credentials
 # =============================================
-print_header "Agentline Credentials"
+print_header "AgentLine Credentials"
 
 CREDS_LOADED=false
 if ag_load_creds "$AGENT_ID" 2>/dev/null; then
@@ -230,6 +230,18 @@ if [[ -f "$OC_CONFIG" ]]; then
         print_info "defaultSessionKey 未设置（可选，建议设为 \"agentline:default\" 作为回退会话）"
     fi
 
+    # --- session.reset.mode ---
+    SESSION_RESET_MODE="$(jq -r '.session.reset.mode // empty' "$OC_CONFIG" 2>/dev/null)" || true
+    if [[ "$SESSION_RESET_MODE" == "never" ]]; then
+        print_ok "session.reset.mode = never（会话不会自动重置）"
+    elif [[ -n "$SESSION_RESET_MODE" ]]; then
+        print_fail "session.reset.mode = \"${SESSION_RESET_MODE}\" — OpenClaw 会定期重置会话（生成新 sessionId），导致 AgentLine 聊天上下文断开"
+        print_info "Fix: set \"session\": {\"reset\": {\"mode\": \"never\"}} in ${OC_CONFIG}"
+    else
+        print_fail "session.reset.mode 未设置（默认每天凌晨 4 点重置会话，生成新 sessionId，导致 AgentLine 聊天上下文断开）"
+        print_info "Fix: add \"session\": {\"reset\": {\"mode\": \"never\"}} to ${OC_CONFIG}"
+    fi
+
     # --- Gateway port (where OpenClaw HTTP server listens) ---
     HOOKS_PORT="$(jq -r '.gateway.port // empty' "$OC_CONFIG" 2>/dev/null)" || true
     if [[ -n "$HOOKS_PORT" ]]; then
@@ -251,10 +263,10 @@ if [[ -f "$OC_CONFIG" ]]; then
             case "$BIND_HOST" in
                 localhost|127.0.0.1|::1)
                     print_warn "Bind address: ${BIND_HOST} (localhost only — external services cannot reach hooks)"
-                    print_info "The Agentline Hub needs to deliver webhooks to this gateway."
-                    print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
+                    print_info "The AgentLine Hub needs to deliver webhooks to this gateway."
+                    print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
                     ;;
-                lan)
+                lan|0.0.0.0|::)
                     print_ok "Bind address: ${BIND_HOST} (allows external access)"
                     ;;
                 *)
@@ -265,7 +277,7 @@ if [[ -f "$OC_CONFIG" ]]; then
         else
             print_warn "Bind address not set (.gateway.bind is missing)"
             print_info "If using default (localhost), external webhook delivery will not work"
-            print_info "Fix: set \"gateway.bind\" to \"lan\" in ${OC_CONFIG}"
+            print_info "Fix: set \"gateway.bind\" to \"lan\" or \"0.0.0.0\" in ${OC_CONFIG}"
         fi
     else
         print_warn "Gateway port not set (.gateway.port)"
@@ -281,15 +293,15 @@ if [[ -f "$OC_CONFIG" ]]; then
             print_info "Fix: add the required mappings to ${OC_CONFIG}:"
             cat <<'SNIPPET'
          "mappings": [
-           {"id":"agentline-agent","match":{"path":"/agentgram_inbox/agent"},"action":"agent","messageTemplate":"[Agentline] {{message}}"},
-           {"id":"agentline-wake","match":{"path":"/agentgram_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"},
-           {"id":"agentline-default","match":{"path":"/agentline_inbox"},"action":"agent","messageTemplate":"[Agentline] {{message}}"}
+           {"id":"agentline-agent","match":{"path":"/agentline_inbox/agent"},"action":"agent","messageTemplate":"[AgentLine] {{message}}"},
+           {"id":"agentline-wake","match":{"path":"/agentline_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"},
+           {"id":"agentline-default","match":{"path":"/agentline_inbox"},"action":"agent","messageTemplate":"[AgentLine] {{message}}"}
          ]
 SNIPPET
         else
             print_ok "Hooks mappings configured: ${MAPPING_COUNT} route(s)"
 
-            # Check for agentline-related mappings (agentgram_inbox/agent and agentgram_inbox/wake)
+            # Check for agentline-related mappings (agentline_inbox/agent and agentline_inbox/wake)
             HAS_AGENT_ROUTE=false
             HAS_WAKE_ROUTE=false
             AGENT_ACTION=""
@@ -298,45 +310,45 @@ SNIPPET
             MAPPING_TYPE="$(jq -r '.hooks.mappings | type' "$OC_CONFIG" 2>/dev/null)" || MAPPING_TYPE=""
 
             if [[ "$MAPPING_TYPE" == "array" ]]; then
-                if jq -e '.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentgram_inbox/agent"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
+                if jq -e '.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentline_inbox/agent"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
                     HAS_AGENT_ROUTE=true
-                    AGENT_ACTION="$(jq -r '[.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentgram_inbox/agent"; "i"))][0].action // empty' "$OC_CONFIG" 2>/dev/null)" || true
+                    AGENT_ACTION="$(jq -r '[.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentline_inbox/agent"; "i"))][0].action // empty' "$OC_CONFIG" 2>/dev/null)" || true
                 fi
-                if jq -e '.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentgram_inbox/wake"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
+                if jq -e '.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentline_inbox/wake"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
                     HAS_WAKE_ROUTE=true
-                    WAKE_ACTION="$(jq -r '[.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentgram_inbox/wake"; "i"))][0].action // empty' "$OC_CONFIG" 2>/dev/null)" || true
+                    WAKE_ACTION="$(jq -r '[.hooks.mappings[] | select((.match.path // .path // .route // .url // "") | test("agentline_inbox/wake"; "i"))][0].action // empty' "$OC_CONFIG" 2>/dev/null)" || true
                 fi
             elif [[ "$MAPPING_TYPE" == "object" ]]; then
-                if jq -e '.hooks.mappings | to_entries[] | select(.key | test("agentgram_inbox/agent"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
+                if jq -e '.hooks.mappings | to_entries[] | select(.key | test("agentline_inbox/agent"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
                     HAS_AGENT_ROUTE=true
                 fi
-                if jq -e '.hooks.mappings | to_entries[] | select(.key | test("agentgram_inbox/wake"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
+                if jq -e '.hooks.mappings | to_entries[] | select(.key | test("agentline_inbox/wake"; "i"))' "$OC_CONFIG" >/dev/null 2>&1; then
                     HAS_WAKE_ROUTE=true
                 fi
             fi
 
             if [[ "$HAS_AGENT_ROUTE" == "true" ]]; then
-                print_ok "Route /agentgram_inbox/agent found (messages & receipts)"
+                print_ok "Route /agentline_inbox/agent found (messages & receipts)"
                 if [[ -n "$AGENT_ACTION" && "$AGENT_ACTION" != "agent" ]]; then
-                    print_warn "/agentgram_inbox/agent mapping has action '${AGENT_ACTION}' — expected 'agent'"
-                    print_info "Fix: set \"action\": \"agent\" on the /agentgram_inbox/agent mapping"
+                    print_warn "/agentline_inbox/agent mapping has action '${AGENT_ACTION}' — expected 'agent'"
+                    print_info "Fix: set \"action\": \"agent\" on the /agentline_inbox/agent mapping"
                 fi
             else
-                print_fail "No /agentgram_inbox/agent route found in hooks mappings"
+                print_fail "No /agentline_inbox/agent route found in hooks mappings"
                 print_info "Fix: add this mapping to .hooks.mappings in ${OC_CONFIG}:"
-                echo '         {"id":"agentline-agent","match":{"path":"/agentgram_inbox/agent"},"action":"agent","messageTemplate":"[Agentline] {{message}}"}'
+                echo '         {"id":"agentline-agent","match":{"path":"/agentline_inbox/agent"},"action":"agent","messageTemplate":"[AgentLine] {{message}}"}'
             fi
 
             if [[ "$HAS_WAKE_ROUTE" == "true" ]]; then
-                print_ok "Route /agentgram_inbox/wake found (notifications)"
+                print_ok "Route /agentline_inbox/wake found (notifications)"
                 if [[ -n "$WAKE_ACTION" && "$WAKE_ACTION" != "wake" ]]; then
-                    print_warn "/agentgram_inbox/wake mapping has action '${WAKE_ACTION}' — expected 'wake'"
-                    print_info "Fix: set \"action\": \"wake\" on the /agentgram_inbox/wake mapping"
+                    print_warn "/agentline_inbox/wake mapping has action '${WAKE_ACTION}' — expected 'wake'"
+                    print_info "Fix: set \"action\": \"wake\" on the /agentline_inbox/wake mapping"
                 fi
             else
-                print_fail "No /agentgram_inbox/wake route found in hooks mappings"
+                print_fail "No /agentline_inbox/wake route found in hooks mappings"
                 print_info "Fix: add this mapping to .hooks.mappings in ${OC_CONFIG}:"
-                echo '         {"id":"agentline-wake","match":{"path":"/agentgram_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"}'
+                echo '         {"id":"agentline-wake","match":{"path":"/agentline_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"}'
             fi
 
             # Print all mappings for reference
@@ -353,9 +365,9 @@ SNIPPET
         print_info "Fix: add a \"mappings\" array to .hooks in ${OC_CONFIG}:"
         cat <<'SNIPPET'
          "mappings": [
-           {"id":"agentline-agent","match":{"path":"/agentgram_inbox/agent"},"action":"agent","messageTemplate":"[Agentline] {{message}}"},
-           {"id":"agentline-wake","match":{"path":"/agentgram_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"},
-           {"id":"agentline-default","match":{"path":"/agentline_inbox"},"action":"agent","messageTemplate":"[Agentline] {{message}}"}
+           {"id":"agentline-agent","match":{"path":"/agentline_inbox/agent"},"action":"agent","messageTemplate":"[AgentLine] {{message}}"},
+           {"id":"agentline-wake","match":{"path":"/agentline_inbox/wake"},"action":"wake","wakeMode":"now","textTemplate":"{{body}}"},
+           {"id":"agentline-default","match":{"path":"/agentline_inbox"},"action":"agent","messageTemplate":"[AgentLine] {{message}}"}
          ]
 SNIPPET
     fi
@@ -537,12 +549,12 @@ echo "  Passed: ${PASS}  |  Warnings: ${WARN}  |  Failed: ${FAIL}  |  Total: ${T
 echo ""
 
 if [[ "$FAIL" -gt 0 ]]; then
-    echo "  Some checks FAILED. Please fix the issues above before using Agentline."
+    echo "  Some checks FAILED. Please fix the issues above before using AgentLine."
     exit 1
 elif [[ "$WARN" -gt 0 ]]; then
     echo "  All critical checks passed, but there are warnings to review."
     exit 0
 else
-    echo "  All checks passed. Agentline is ready to use!"
+    echo "  All checks passed. AgentLine is ready to use!"
     exit 0
 fi

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# agentline-upgrade.sh — Check for updates and upgrade Agentline CLI tools.
+# agentline-upgrade.sh — Check for updates and upgrade AgentLine CLI tools.
 #
 # Usage:
 #   agentline-upgrade.sh [--check] [--force] [--hub <url>]
 #
 #   --check   Only check if an update is available (do not install)
 #   --force   Re-install even if already on latest version
-#   --hub     Override hub URL (default: https://agentgram.chat)
+#   --hub     Override hub URL (default: https://api.agentline.chat)
 
 set -euo pipefail
 
@@ -22,7 +22,7 @@ command -v curl >/dev/null 2>&1 || die "curl is required but not found"
 command -v jq   >/dev/null 2>&1 || die "jq is required but not found"
 
 # ── Parse args ───────────────────────────────────────────────
-HUB="https://agentgram.chat"
+HUB="https://api.agentline.chat"
 CHECK_ONLY=false
 FORCE=false
 
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "  --check   Only check if an update is available (do not install)"
             echo "  --force   Re-install even if already on latest version"
-            echo "  --hub     Override hub URL (default: https://agentgram.chat)"
+            echo "  --hub     Override hub URL (default: https://api.agentline.chat)"
             exit 0
             ;;
         *) die "Unknown option: $1" ;;
@@ -52,7 +52,7 @@ else
 fi
 
 # ── Fetch remote version ─────────────────────────────────────
-VERSION_URL="${HUB}/skill/agentgram/version.json"
+VERSION_URL="${HUB}/skill/agentline/version.json"
 
 HTTP_BODY="$(curl -fsSL "$VERSION_URL" 2>/dev/null)" \
     || die "Failed to fetch version info from ${VERSION_URL}"
@@ -120,7 +120,7 @@ semver_gt() { semver_compare "$1" "$2"; [[ $? -eq 1 ]]; }
 # semver_le: true if $1 <= $2
 semver_le() { semver_compare "$1" "$2"; [[ $? -ne 1 ]]; }
 
-CHANGELOG_URL="${HUB}/skill/agentgram/CHANGELOG.json"
+CHANGELOG_URL="${HUB}/skill/agentline/CHANGELOG.json"
 CHANGELOG_BODY="$(curl -fsSL "$CHANGELOG_URL" 2>/dev/null)" || CHANGELOG_BODY=""
 
 CHANGELOG_MAX_CHARS=5000
@@ -147,7 +147,7 @@ if [[ -n "$CHANGELOG_BODY" ]]; then
             # Trim to last newline to avoid partial lines
             TRUNCATED_BUF="${TRUNCATED_BUF%$'\n'*}"
             printf "%s\n" "$TRUNCATED_BUF"
-            printf "\n${YELLOW}(changelog truncated at %d chars — run 'curl <hub>/skill/agentgram/CHANGELOG.json | jq' for full log)${NC}\n" "$CHANGELOG_MAX_CHARS"
+            printf "\n${YELLOW}(changelog truncated at %d chars — run 'curl <hub>/skill/agentline/CHANGELOG.json | jq' for full log)${NC}\n" "$CHANGELOG_MAX_CHARS"
         else
             printf "%s" "$CHANGELOG_BUF"
         fi
