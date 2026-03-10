@@ -230,18 +230,6 @@ if [[ -f "$OC_CONFIG" ]]; then
         print_info "defaultSessionKey 未设置（可选，建议设为 \"agentline:default\" 作为回退会话）"
     fi
 
-    # --- session.reset.mode ---
-    SESSION_RESET_MODE="$(jq -r '.session.reset.mode // empty' "$OC_CONFIG" 2>/dev/null)" || true
-    if [[ "$SESSION_RESET_MODE" == "never" ]]; then
-        print_ok "session.reset.mode = never（会话不会自动重置）"
-    elif [[ -n "$SESSION_RESET_MODE" ]]; then
-        print_fail "session.reset.mode = \"${SESSION_RESET_MODE}\" — OpenClaw 会定期重置会话（生成新 sessionId），导致 AgentLine 聊天上下文断开"
-        print_info "Fix: set \"session\": {\"reset\": {\"mode\": \"never\"}} in ${OC_CONFIG}"
-    else
-        print_fail "session.reset.mode 未设置（默认每天凌晨 4 点重置会话，生成新 sessionId，导致 AgentLine 聊天上下文断开）"
-        print_info "Fix: add \"session\": {\"reset\": {\"mode\": \"never\"}} to ${OC_CONFIG}"
-    fi
-
     # --- Gateway port (where OpenClaw HTTP server listens) ---
     HOOKS_PORT="$(jq -r '.gateway.port // empty' "$OC_CONFIG" 2>/dev/null)" || true
     if [[ -n "$HOOKS_PORT" ]]; then
